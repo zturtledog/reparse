@@ -61,7 +61,7 @@ function parserules(r) {
                 (ptempval ? (",(tkns)=>{" + (r.blocks[i][3] ? "tkns = " + r.blocks[i][3].toString() + ";" : "") + ptempval + "}") : "") + ")"
             ptempval = temp;
         }
-        r.dblock = new Function("return (tkns,r)=>{" + ptempval + "}")()
+        r.dblock = new Function(block.toString()+"\n"+"return (tkns,r)=>{" + ptempval + "}")()
     }
 
     if (r.parser && r.parser.length > 0) {
@@ -132,7 +132,7 @@ function tokenlines(sta, r) {
         return boffer;
     }
 }
-function block(t, start, end, type, r, callback) {
+export function block(t, start, end, type, r, callback) {
     const ends = [];
     let record = [];
     let depth = 0;
