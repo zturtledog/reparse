@@ -1,12 +1,14 @@
 //@author: confusedParrotFish/zturtledog
 //@permissions: no redistribution without credit
-
 export const lex = (code, rules) => {
     const rule = parserules(rules)
     const lines = tokenlines(code, rule)
     const lexed = (rules.linecount ?
         countlines(lines, rule) : lines)
-    const dblk = (rules.dblock ? rules.dblock(lexed, rules) : lexed)
+
+    const dblk = reblock(lexed, rules)
+
+    // const dblk = (rules.dblock ? rules.dblock(lexed, rules) : lexed)
     return dblk
 }
 function mixlist(a, b) {
@@ -43,37 +45,6 @@ function parserules(r) {
         }
     }
     r.match = nmatch;
-
-    if (r.blocks && r.blocks.length > 0) {
-        //reverse up the list
-        //nest the functions
-        //set pvaltemp to temp
-        //return final function
-
-        //block(lex(code,rules),"cropen","crclose","block",
-        //(df)=>{return block(df,"propen","prclose","parameter")})
-        let ptempval = ""
-        for (let i = r.blocks.length - 1; i >= 0; i--) {
-            const temp = "return block(tkns,\"" +
-                r.blocks[i][0] + "\",\"" +
-                r.blocks[i][1] + "\",\"" +
-                r.blocks[i][2] + "\",r" +
-                (ptempval ? (",(tkns)=>{" + (r.blocks[i][3] ? "tkns = " + r.blocks[i][3].toString() + ";" : "") + ptempval + "}") : "") + ")"
-            ptempval = temp;
-        }
-        r.dblock = new Function(block.toString()+"\n"+"return (tkns,r)=>{" + ptempval + "}")()
-    }
-
-    if (r.parser && r.parser.length > 0) {
-        //normalize input match
-        for (let i = 0; i < r.parser.length; i++) {
-            for (let j = 1; j < r.parser[i].length; j++) {
-                if (typeof r.parser[i][j] == "string") {
-                    r.parser[i][j] = [r.parser[i][j]]
-                }
-            }
-        }
-    }
 
     return r;
 }
@@ -132,7 +103,19 @@ function tokenlines(sta, r) {
         return boffer;
     }
 }
-export function block(t, start, end, type, r, callback) {
+export function reblock(tokens, rules) {
+    let patittr = tokens
+    if (rules.blocks && rules.blocks.length > 0) {
+        for (let i = 0; i < rules.blocks.length; i++) {
+            if (rules.blocks[i].length > 2) {
+                patittr = block(patittr, rules.blocks[i][0], rules.blocks[i][1], rules.blocks[i][2], rules,
+                    (rules.blockcallback[rules.blocks[i][2]] ? rules.blockcallback[rules.blocks[i][2]] : undefined))
+            }
+        }
+    }
+    return patittr
+}
+export function block(t, start, end, type, rules, callback) {
     const ends = [];
     let record = [];
     let depth = 0;
@@ -143,14 +126,14 @@ export function block(t, start, end, type, r, callback) {
     for (let i = 0; i < t.length; i++) {
         if (t[i].type == end) {
             if (!recording) {
-                if (r.errorcallback)
-                    r.errorcallback(t[i], "unexpected-token", " '" + type + "' -blockgen")
+                if (rules.errorcallback)
+                    rules.errorcallback(t[i], "unexpected-token", " '" + type + "' -blockgen")
             }
             if (depth == 1) {
                 recording = false;
                 ends.push({
                     type: type,
-                    value: block(record, start, end, type, r, callback),
+                    value: reblock(record,rules),
                     line: past.line,
                     constructor: { name: type },
                 });
@@ -175,9 +158,12 @@ export function block(t, start, end, type, r, callback) {
         }
     }
     if (recording) {
-        if (r.errorcallback)
-            r.errorcallback(past, "unexpected-end-of-input", "@ '" + type + "' -blockgen")
+        if (rules.errorcallback)
+            rules.errorcallback(past, "unexpected-end-of-input", "@ '" + type + "' -blockgen")
     }
+
+    // console.log(callback.toString())
     const cals = callback ? callback(ends) : ends
-    return r.blockcallback ? r.blockcallback(cals, type) : cals;
+
+    return cals?cals:ends;
 }
